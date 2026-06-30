@@ -175,18 +175,24 @@ def read_facility_trainer_csv(working_data, target_name):
             pointer = from_little_bytes_int(working_data.personal_binary[absolute_index][0x1C:0x1E])
 
             #multiple formes and absolute index is at least as big as pointer
-            if(forme_count > 1 and absolute_index >= pointer and pointer != 0):
-
-                #forme index
-                temp[0xE] = absolute_index - pointer + 1
-
+            if(forme_count > 1 and pointer != 0 and pointer <= absolute_index):
+                
                 #search for base Pokemon
                 for y, entry in enumerate(working_data.personal_binary):
-                    if(from_little_bytes_int(entry[0x1C:0x1E]) == pointer and y < pointer):
+                    temp_pointer = from_little_bytes_int(entry[0x1C:0x1E])
+
+                    #found base pokemon
+                    if(temp_pointer + entry[0x20] - 2 >= absolute_index):
+                        #set base Pokemon index
                         temp[0:2] = y.to_bytes(2, 'little')
+                        temp[0xE] = absolute_index - temp_pointer + 1
+                        print(line[1], absolute_index, temp_pointer, y, temp[0xE])
                         break
+
             else:
                 temp[0:2] = absolute_index.to_bytes(2, 'little')
+
+            
 
             #moves
             for move_position in range(4):
@@ -311,4 +317,36 @@ def main():
             case 'q':
                 return
 
+
+def fix_bins():
+
+    folder_path = askdirectory()
+
+    with open(os.path.join(folder_path, str(1134).zfill(4) + '.bin'), 'r+b') as comp:
+        for bin_number, file in enumerate(os.scandir(folder_path)):
+            if(bin_number == 1134):
+                break
+            elif file.is_file():  # Check if it's a file
+                with open(file, "r+b") as f:
+                    f.seek(0x20)
+                    forme_count = from_little_bytes_int(f.read(1))
+                    f.seek(0x1C)
+                    pointer = from_little_bytes_int(list(f.read(2)))
+
+                    if(forme_count > 1 and pointer > 0 and not(pointer <= bin_number and pointer != 0)):
+                        for number in range(forme_count - 1):
+                            with open(os.path.join(folder_path, str(number + pointer).zfill(4) + '.bin'), 'r+b') as g:
+                                g.seek(0x1C)
+                                g.write(bytes(from_int_little_bytes(pointer, 2)))
+                                print(f'{number + pointer}, Pokemon {bin_number}, forme {number + 1} set to have pointer {pointer}')
+
+                    #write entire file to compilation
+                    f.seek(0)
+                    comp.write(f.read())
+
 main()
+
+
+#fix_bins()
+
+
