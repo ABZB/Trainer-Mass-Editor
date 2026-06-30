@@ -4,12 +4,20 @@ from functools import reduce
 import os
 
 
-def load_text_from_csv(path, thing_to_do_things_to):
+def load_text_from_csv(path, thing_to_do_things_to, column = -1):
     with open(path, newline = '', encoding='utf-8-sig') as csvfile:
         reader_head = csv.reader(csvfile, dialect='excel', delimiter=',')
         
         #load csv into the array      
         thing_to_do_things_to = list(reader_head)
+
+        if(column >= 0):
+            temp = []
+
+            for x in thing_to_do_things_to:
+                temp.append(x[column])
+            thing_to_do_things_to = temp
+
 
         return(thing_to_do_things_to)
 
@@ -279,9 +287,11 @@ def reconstruct_GARC(final_binary, GARC_name, game):
 
     return(temp)
 
-def save_GARC(final_binary, GARC_name, file_path):
+def save_GARC(final_binary, GARC_name, file_path, game):
 
-    temp = reconstruct_GARC(final_binary, GARC_name)
+
+
+    temp = reconstruct_GARC(final_binary, GARC_name, game)
 
     with open(file_path, "w+b") as f:
         f.write(bytes(temp))
