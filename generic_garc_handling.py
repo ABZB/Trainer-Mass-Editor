@@ -1,6 +1,7 @@
 import csv
 from tkinter.filedialog import askdirectory, asksaveasfilename, askopenfilename
 from functools import reduce
+import os
 
 
 def load_text_from_csv(path, thing_to_do_things_to):
@@ -9,6 +10,8 @@ def load_text_from_csv(path, thing_to_do_things_to):
         
         #load csv into the array      
         thing_to_do_things_to = list(reader_head)
+
+        return(thing_to_do_things_to)
 
 
 #read input bytestring as little-endian, return integer
@@ -25,6 +28,9 @@ def from_little_bytes_int(byte_input, length = 0, start = 0):
         temp += byte << (x*8)
     return(temp)
 
+#convert integer input into little-endian hex with given padding (default 0x4 bytes)
+def from_int_little_bytes(decimal_number, padding = 0x4):
+    return(decimal_number.to_bytes(padding, 'little'))
 
 def binary_file_to_array(file_path):
 
@@ -107,7 +113,7 @@ def deconstruct_GARC(path, game):
 
     return(output_array)
 
-def reconstruct_GARC(final_binary, GARC_name):
+def reconstruct_GARC(final_binary, GARC_name, game):
     
     match GARC_name:
         case "personal":
@@ -133,7 +139,7 @@ def reconstruct_GARC(final_binary, GARC_name):
     temp[0x08:0xA] = [0xFF, 0xFE]
 
     #header length and Version
-    if(poke_edit_data in {"XY", "ORAS"}):
+    if(game in {"XY", "ORAS"}):
         temp[0x4] = 0x1C
         temp[0xB] = 0x04
         FAT0_offset = 0x1C
@@ -255,7 +261,7 @@ def reconstruct_GARC(final_binary, GARC_name):
     #in GARC header, need to write file length, and largest file size (plus padded max and padding in gen 7)
 
     #only write largest file size at FAT0_offset - 4
-    if(poke_edit_data in {"XY", "ORAS"}):
+    if(game in {"XY", "ORAS"}):
         temp[FAT0_offset - 0x4:FAT0_offset] = from_int_little_bytes(biggest_size, 0x4)
     
     #starting from FAT0_offset - 0xC:
@@ -273,21 +279,9 @@ def reconstruct_GARC(final_binary, GARC_name):
 
     return(temp)
 
-def save_GARC(final_binary, GARC_name, override = ''):
+def save_GARC(final_binary, GARC_name, file_path):
 
     temp = reconstruct_GARC(final_binary, GARC_name)
-
-    match GARC_name:
-        case "personal":
-            file_path = poke_edit_data.personal_path
-        case "evolution":
-            file_path = poke_edit_data.evolution_path
-        case "levelup":
-            file_path = poke_edit_data.levelup_path
-        case "model":
-            file_path = poke_edit_data.model_path
-        case _:
-            file_path = override
 
     with open(file_path, "w+b") as f:
         f.write(bytes(temp))
@@ -298,43 +292,9 @@ def load_GARC(game, garc_path, target):
 
     if(os.path.exists(garc_path)):
 
-        try:
-            file_array = deconstruct_GARC(binary_file_to_array(garc_path), game)
-
-            match poke_edit_data.game:
-                case "XY":
-                    poke_edit_data.max_species_index = 721
-                case "ORAS":
-                    poke_edit_data.max_species_index = 721
-                case "SM":
-                    poke_edit_data.max_species_index = 802
-                case "USUM":
-                    poke_edit_data.max_species_index = 807
-
-            match target:
-                case "Personal":
-                    poke_edit_data.personal_path = garc_path
-
-                    #delete compilation file
-                    file_array.pop()
-
-                    poke_edit_data.personal = file_array
-                case "Levelup":
-                    poke_edit_data.levelup_path = garc_path
-                    poke_edit_data.levelup = file_array
-
-                case "Evolution":
-                    poke_edit_data.evolution_path = garc_path
-                    poke_edit_data.evolution = file_array
-
-                case _:
-                    return(file_array)
+        return(deconstruct_GARC(garc_path, game))
 
 
-        except Exception as e:
-            print(e)
-            return(poke_edit_data)
 
     else:
         print("Garc folder not found, unreadable, or empty")
-    return(poke_edit_data)
