@@ -273,47 +273,59 @@ def main():
 
         #choose extract or rebuild
         while True:
-            action_choice = input('Extract or rebuild GARC, or quit? (e/r/q)\n').lower()
-            if(action_choice in {'e', 'r', 'q'}):
+            action_choice = input('\n(1) Extract GARC\n(2) Build GARC\n(Q) Quit?\n\n').lower()
+            if(action_choice in {'1', '2', 'q'}):
                 break
             else:
                 print(action_choice, 'is not valid\\nn')
+        if(action_choice == 'q'):
+            return
 
-        while action_choice != 'q':
-            target_choice = input('Regular Trainers, Battle Tree, or Battle Royale? (r/t/e)\n').lower()
-            if(target_choice in {'r', 't', 'e', 'q'}):
+        action_choice = 'Extract' if (action_choice == '1') else 'Build'
+
+        while True:
+            target_choice = input('\n(1) Regular Trainers\n(2) Battle Tree\n(3) Battle Royale?\n\n').lower()
+            if(target_choice in {'1', '2', '3'}):
                 break
             else:
                 print(target_choice, 'is not valid\\nn')
 
-        target_name = 'Battle Tree' if target_choice == 't' else 'Battle Royale' if target_choice == 'e' else 'Regular Trainers'
+        target_name = 'Battle Tree' if target_choice == '2' else 'Battle Royale' if target_choice == '3' else 'Regular Trainers'
 
         
+        while True:
+            
+            proceed = input(f'\n{action_choice} GARCs for {target_name}? Y/N\n\n').lower()
+
+            if(proceed in {'y', 'n', '1', '0'}):
+                break
+            else:
+                print(f'{proceed} not understood')
+
+        if(proceed in {'y', '1'}):
 
 
-        #set up the file target for display
-        match working_data.game:
-            case 'USUM':
-                match target_name:
-                    case 'Regular Trainers':
-                        working_data.pokemon_file_name = 'a/1/0/7'
-                        working_data.trainer_file_name = 'a/1/0/6'
-                    case 'Battle Royale':
-                        working_data.pokemon_file_name = 'a/2/8/3'
-                        working_data.trainer_file_name = 'a/2/8/4'
-                    case 'Battle Tree':
-                        working_data.pokemon_file_name = 'a/2/8/1'
-                        working_data.trainer_file_name = 'a/2/8/2'
-                working_data.personal_file_name = 'a/0/1/7'
+            #set up the file target for display
+            match working_data.game:
+                case 'USUM':
+                    match target_name:
+                        case 'Regular Trainers':
+                            working_data.pokemon_file_name = 'a/1/0/7'
+                            working_data.trainer_file_name = 'a/1/0/6'
+                        case 'Battle Royale':
+                            working_data.pokemon_file_name = 'a/2/8/3'
+                            working_data.trainer_file_name = 'a/2/8/4'
+                        case 'Battle Tree':
+                            working_data.pokemon_file_name = 'a/2/8/1'
+                            working_data.trainer_file_name = 'a/2/8/2'
+                    working_data.personal_file_name = 'a/0/1/7'
                         
 
-        match action_choice:
-            case 'e':
-                export_from_GARC(working_data, target_name)
-            case 'r':
-                import_to_GARC(working_data, target_name)
-            case 'q':
-                return
+            match action_choice:
+                case 'Extract':
+                    export_from_GARC(working_data, target_name)
+                case 'Build':
+                    import_to_GARC(working_data, target_name)
 
 
 def fix_bins():
@@ -342,9 +354,24 @@ def fix_bins():
                     f.seek(0)
                     comp.write(f.read())
 
+
+def update_master_bit():
+
+    folder_path = askdirectory()
+
+    for bin_number, file in enumerate(os.scandir(folder_path)):
+        if file.is_file():  # Check if it's a file
+            with open(file, "r+b") as f:
+                f.seek(0x0D)
+                value = f.read(1)
+
+                new_value = from_little_bytes_int(value) | 1
+
+                print(f'Wrote {new_value} over {value} in file {bin_number}')
+                f.seek(0x0D)
+                f.write(bytes(new_value.to_bytes(1, 'little')))
+
 main()
 
-
+#update_master_bit()
 #fix_bins()
-
-
