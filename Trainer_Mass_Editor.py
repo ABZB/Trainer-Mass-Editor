@@ -26,9 +26,19 @@ class trainerdata:
         self.personal_file_name = ''
 
 
+def get_int_range(entry, offset, length):
+    return(from_little_bytes_int(entry[offset:offset + length]))
 
 def print_regular_trainer_csv(working_data):
-    pass
+    temp = []
+
+    #write Pokemon
+    with open(asksaveasfilename(title='Save Table of Trainers', defaultextension='.csv',filetypes= [('CSV','.csv')]), 'w', newline = '', encoding='utf-8-sig') as trainerfile:
+        trainerhead = csv.writer(trainerfile, dialect='excel', delimiter=',')
+
+        #write header row
+        trainerhead.writerow(['Index', 'Trainer Class', 'Trainer Name', 'Party Size', 'Item 1', 'Item 2', 'Item 3', 'Item 4', 'Basic AI', 'Strong AI', 'Expert AI', 'Doubles AI', 'No Whiteout', 'Battle Royale AI', 'Switching AI', 'Trainer Item AI', 'Master AI', 'Money'])
+
 
         with open(asksaveasfilename(title='Save Table of Pokemon', defaultextension='.csv',filetypes= [('CSV','.csv')]), 'w', newline = '', encoding='utf-8-sig') as pokefile:
             pokehead = csv.writer(pokefile, dialect='excel', delimiter=',')
