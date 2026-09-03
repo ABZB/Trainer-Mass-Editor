@@ -30,6 +30,129 @@ class trainerdata:
 def print_regular_trainer_csv(working_data):
     pass
 
+        with open(asksaveasfilename(title='Save Table of Pokemon', defaultextension='.csv',filetypes= [('CSV','.csv')]), 'w', newline = '', encoding='utf-8-sig') as pokefile:
+            pokehead = csv.writer(pokefile, dialect='excel', delimiter=',')
+
+
+
+            poke_index = 0
+
+            for count, entry in enumerate(working_data.trainer_binary):
+                
+                #index
+                trainer_temp = [count]
+
+                #class
+                trainer_temp.append(trainer_class_names[get_int_range(entry, 0, 2)])
+
+                #name
+                trainer_temp.append(working_data.trainer_name_list_world[count])
+
+                #party size
+                trainer_temp.append(get_int_range(entry, 3, 1))
+
+                #first trainer at index 0 has no Pokemon, and the 0 index Pokemon file is actually completely empty, so get errors
+                if(count == 0):
+                    pokehead.writerow(['Trainer Index', 'Trainer', 'Pokemon',  'Level', 'Gender', 'Ability', 'Nature', 'Item', 'Friendship', 'Shiny', 'HP IV', 'Atk IV', 'Def IV', 'SpA IV', 'SpD IV', 'Spe IV',  'HP EV', 'Atk EV', 'Def EV', 'SpA EV', 'SpD EV', 'Spe EV', 'Move 1', 'Move 2', 'Move 3', 'Move 4'])
+                    continue
+
+                #get this trainer's team GARC
+                teamentry = working_data.pokemon_binary[count]
+                #now have everything to write the Pokemon for this trainer
+                for x in range(trainer_temp[3]):
+                    #trainer index and name
+
+                    poketemp = []
+
+                    poketemp.append(trainer_temp[0])
+                    poketemp.append(trainer_temp[1] + ': ' + trainer_temp[2])
+
+                    #get the slice that is the xth member of the team
+                    pokentry = teamentry[x*0x20:x*0x20 + 20]
+                   
+
+                    #pokemon name
+                    pokemon_index = get_int_range(pokentry, 0x10, 2)
+                    forme_number = get_int_range(pokentry, 0x12, 1)
+                    try:
+                        if(forme_number != 0):
+                            #index of first alt forme + forme number - 1 = index of this particular alt forme (e.g. forme 1 is the pointer index)
+                            possible_index = forme_number + get_int_range(working_data.personal_binary[pokemon_index], 0x1C, 2) - 1
+                            pokemon_index = possible_index if possible_index >= pokemon_index else pokemon_index
+                        poketemp.append(working_data.pokemon_name_list[pokemon_index])
+                    except:
+                        print(f'Pokemon {pokemon_index}, forme {forme_number} not recognized')
+
+                    #level
+                    poketemp.append(get_int_range(pokentry, 0xE, 1))
+
+                    #gender
+                    match get_int_range(pokentry, 0x0, 1) & 0x3:
+                        case 0:
+                            poketemp.append('Random/Genderless')
+                        case 2:
+                            poketemp.append('Female')
+                        case 1:
+                            poketemp.append('Male')
+
+                    #Ability
+                    match (get_int_range(pokentry, 0x0, 1) >> 4) & 0x3:
+                        case 0:
+                            poketemp.append('1 or 2')
+                        case 1:
+                            poketemp.append('1')
+                        case 2:
+                            poketemp.append('2')
+                        case 3:
+                            poketemp.append('H')
+
+                    #nature
+                    poketemp.append(nature_names[get_int_range(pokentry, 0x1, 1)])
+
+                    #hold item
+                    poketemp.append(working_data.item_name_list[get_int_range(pokentry, 0x14, 2)])
+
+                    #friendship
+                    poketemp.append(get_int_range(pokentry, 0xC, 1))
+
+                    iv_block = get_int_range(pokentry, 0x8, 4)
+
+                    #shiny
+                    poketemp.append('True' if ((iv_block >> 0x30) & 1 == 1) else 'False')
+
+                    #IVs
+                    for x in range(6):
+                        poketemp.append((iv_block >> (x*5)) & 0x1F)
+
+                    #Evs
+                    for x in range(6):
+                        poketemp.append(get_int_range(pokentry, 0x2 + x, 1))
+
+
+                    #moves
+                    for x in range(4):
+                        try:
+                            poketemp.append(working_data.move_name_list[get_int_range(pokentry, 0x18 + x*2, 2)])
+                        except:
+                            print(f'Move index {get_int_range(pokentry, 0x18 + x*2, 2)} not recognized')
+
+                    #write Pokemon row
+                    pokehead.writerow(poketemp)
+
+                #items
+                for x in range(4):
+                     trainer_temp.append(working_data.item_name_list[get_int_range(entry, 0x04 + x*2, 2)])
+                
+                #9 AI bits
+                ai_lower = get_int_range(entry, 0xC, 2)
+                for x in range(9):
+                    trainer_temp.append('True' if ((ai_lower >> x) & 0x1) == 1 else '')
+
+                trainer_temp.append(get_int_range(entry, 0x11, 1))
+
+                trainerhead.writerow(trainer_temp)
+
+
 def print_facility_trainer_csv(working_data, target_name):
     temp = []
 
