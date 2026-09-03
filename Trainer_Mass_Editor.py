@@ -184,7 +184,6 @@ def read_facility_trainer_csv(working_data, target_name):
                         #set base Pokemon index
                         temp[0:2] = y.to_bytes(2, 'little')
                         temp[0xE] = absolute_index - temp_pointer + 1
-                        print(line[1], absolute_index, temp_pointer, y, temp[0xE])
                         break
 
             else:
