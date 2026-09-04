@@ -1,4 +1,5 @@
 from encodings import utf_16_le, utf_8
+from re import I
 from generic_garc_handling import *
 from constants import *
 import os
@@ -14,9 +15,6 @@ class trainerdata:
         self.pokemon_name_list = ['custom_pokemon_list.csv']
         self.move_name_list = ['custom_move_list.csv']
 
-        self.trainer_path = ''
-        self.pokemon_path = ''
-
         self.trainer_binary = []
         self.pokemon_binary = []
         self.personal_binary = []
@@ -30,22 +28,21 @@ def get_int_range(entry, offset, length):
     return(from_little_bytes_int(entry[offset:offset + length]))
 
 def print_regular_trainer_csv(working_data):
-    temp = []
+    
+
 
     #write Pokemon
     with open(asksaveasfilename(title='Save Table of Trainers', defaultextension='.csv',filetypes= [('CSV','.csv')]), 'w', newline = '', encoding='utf-8-sig') as trainerfile:
         trainerhead = csv.writer(trainerfile, dialect='excel', delimiter=',')
 
         #write header row
-        trainerhead.writerow(['Index', 'Trainer Class', 'Trainer Name', 'Party Size', 'Item 1', 'Item 2', 'Item 3', 'Item 4', 'Basic AI', 'Strong AI', 'Expert AI', 'Doubles AI', 'No Whiteout', 'Battle Royale AI', 'Switching AI', 'Trainer Item AI', 'Master AI', 'Money'])
+        trainerhead.writerow(['Index', 'Trainer Class', 'Trainer Name', 'Party Size', 'Mode', 'Item 1', 'Item 2', 'Item 3', 'Item 4', 'Basic AI', 'Strong AI', 'Expert AI', 'Doubles AI', 'No Whiteout', 'Battle Royale AI', 'Switching AI', 'Trainer Item AI', 'Master AI', 'Money'])
 
 
         with open(asksaveasfilename(title='Save Table of Pokemon', defaultextension='.csv',filetypes= [('CSV','.csv')]), 'w', newline = '', encoding='utf-8-sig') as pokefile:
             pokehead = csv.writer(pokefile, dialect='excel', delimiter=',')
 
 
-
-            poke_index = 0
 
             for count, entry in enumerate(working_data.trainer_binary):
                 
@@ -61,9 +58,21 @@ def print_regular_trainer_csv(working_data):
                 #party size
                 trainer_temp.append(get_int_range(entry, 3, 1))
 
+
+                #battle mode
+                match entry[2]:
+                    case 0:
+                        trainer_temp.append('Single')
+                    case 1:
+                        trainer_temp.append('Double')
+                    case 2:
+                        trainer_temp.append('Multi')
+                    
+
+
                 #first trainer at index 0 has no Pokemon, and the 0 index Pokemon file is actually completely empty, so get errors
                 if(count == 0):
-                    pokehead.writerow(['Trainer Index', 'Trainer', 'Pokemon',  'Level', 'Gender', 'Ability', 'Nature', 'Item', 'Friendship', 'Shiny', 'HP IV', 'Atk IV', 'Def IV', 'SpA IV', 'SpD IV', 'Spe IV',  'HP EV', 'Atk EV', 'Def EV', 'SpA EV', 'SpD EV', 'Spe EV', 'Move 1', 'Move 2', 'Move 3', 'Move 4'])
+                    pokehead.writerow(['Trainer Index', 'Trainer', 'Pokemon', 'Forme Number',  'Level', 'Gender', 'Ability', 'Nature', 'Item', 'Friendship', 'Shiny', 'HP IV', 'Atk IV', 'Def IV', 'SpA IV', 'SpD IV', 'Spe IV',  'HP EV', 'Atk EV', 'Def EV', 'SpA EV', 'SpD EV', 'Spe EV', 'Move 1', 'Move 2', 'Move 3', 'Move 4'])
                     continue
 
                 #get this trainer's team GARC
@@ -78,10 +87,11 @@ def print_regular_trainer_csv(working_data):
                     poketemp.append(trainer_temp[1] + ': ' + trainer_temp[2])
 
                     #get the slice that is the xth member of the team
-                    pokentry = teamentry[x*0x20:x*0x20 + 20]
+                    pokentry = teamentry[x*0x20:x*0x20 + 0x20]
                    
 
-                    #pokemon name
+
+                    #pokemon name from species
                     pokemon_index = get_int_range(pokentry, 0x10, 2)
                     forme_number = get_int_range(pokentry, 0x12, 1)
                     try:
@@ -92,6 +102,8 @@ def print_regular_trainer_csv(working_data):
                         poketemp.append(working_data.pokemon_name_list[pokemon_index])
                     except:
                         print(f'Pokemon {pokemon_index}, forme {forme_number} not recognized')
+
+                    poketemp.append(forme_number if forme_number > 0 else '')
 
                     #level
                     poketemp.append(get_int_range(pokentry, 0xE, 1))
@@ -128,7 +140,7 @@ def print_regular_trainer_csv(working_data):
                     iv_block = get_int_range(pokentry, 0x8, 4)
 
                     #shiny
-                    poketemp.append('True' if ((iv_block >> 0x30) & 1 == 1) else 'False')
+                    poketemp.append('True' if (((iv_block >> 0x1E) & 1) == 1) else 'False')
 
                     #IVs
                     for x in range(6):
@@ -143,6 +155,7 @@ def print_regular_trainer_csv(working_data):
                     for x in range(4):
                         try:
                             poketemp.append(working_data.move_name_list[get_int_range(pokentry, 0x18 + x*2, 2)])
+                            working_data.move_name_list[get_int_range(pokentry, 0x18 + x*2, 2)]
                         except:
                             print(f'Move index {get_int_range(pokentry, 0x18 + x*2, 2)} not recognized')
 
@@ -273,7 +286,226 @@ def export_from_GARC(working_data, target_name):
 
 
 def read_regular_trainer_csv(working_data):
-    pass
+    
+    working_data.personal_binary = load_GARC(working_data.game, askopenfilename(title=f'Select Personal Data {working_data.personal_file_name}', defaultextension='',filetypes= [('','')]), 'Personal')
+    
+    #Trainer CSV Pokemon
+    with open(askopenfilename(title='Table of Trainers', defaultextension='.csv',filetypes= [('CSV','.csv')]), 'r', newline = '', encoding='utf-8-sig') as trainerfile:
+        trainerhead = csv.reader(trainerfile, dialect='excel', delimiter=',')
+
+        #'Index', 'Trainer Class', 'Trainer Name', 'Party Size', 'Item 1', 'Item 2', 'Item 3', 'Item 4', 'Basic AI', 'Strong AI', 'Expert AI', 'Doubles AI', 'No Whiteout', 'Battle Royale AI', 'Switching AI', 'Trainer Item AI', 'Master AI', 'Money'
+        with open(askopenfilename(title='Table of Pokemon', defaultextension='.csv',filetypes= [('CSV','.csv')]), 'r', newline = '', encoding='utf-8-sig') as pokefile:
+            pokehead = csv.reader(pokefile, dialect='excel', delimiter=',')
+
+            #get lines and remove the first one (header)
+            trainerlines = list(trainerhead)
+            pokelines = list(pokehead)
+
+            trainerlines.pop(0)
+            pokelines.pop(0)
+
+    poke_index = 0
+
+    #trainer 0 is all zeros
+    trbin = [bytearray(0x14)]
+
+    #Pokemon 0 is completely empty
+    teambin = [[]]
+
+    lower_name_list = [item.lower().replace(' ', '') for item in working_data.pokemon_name_list]
+    lower_item_list = [item.lower().replace(' ', '') for item in working_data.item_name_list]
+    for count, entry in enumerate(trainerlines):
+
+
+        trtemp = []
+        #reconstruct for this trainer
+        trtemp = [(0).to_bytes(1, 'little')]*0x14
+
+        #reconstruct for this team
+        teamtemp = []
+
+
+        #trainer class
+        trtemp[0] = trainer_class_names.index(entry[1]).to_bytes(1, 'little')
+
+        #Battle Mode
+        trtemp[2] = (0 if entry[4] == 'Single' else (1 if entry[4] == 'Double' else 2)).to_bytes(1, 'little')
+
+        #Party Size
+        trtemp[3] = min(int(entry[3]), 6).to_bytes(1, 'little')
+
+        if(int(entry[3]) > 6):
+            print(f'Trainer {count + 1} has invalid party size {entry[3]}, setting party size to 6 instead')
+
+
+        #items
+        for x in range(4):
+                try:
+                    item_index = int(working_data.item_name_list.index(entry[5 + x]))
+                except:
+                    try:
+                        item_index = int(lower_item_list.index(str(entry[5 + x]).lower().replace(' ', '')))
+                    except:
+                        item_index = 0
+                        print(f'Trainer {count + 1} has invalid item-for-use, did not recognize {entry[5 + x]}, Writing no item in its place')
+
+                trtemp[0x4 + 2*x:0x4 + 2*x + 2] = item_index.to_bytes(2, 'little')
+
+        #AI
+        ai_total = 0
+        for x in range(9):
+            ai_total += (1 if str(entry[9+x]).lower() in {'1', 't', 'true'} else 0) << x
+        
+        trtemp[0xC:0xE] = ai_total.to_bytes(2, 'little')
+
+        #money
+        trtemp[0x11] = int(entry[18]).to_bytes(1, 'little')
+
+        trbin.append(trtemp)
+
+        #now have everything to write the Pokemon for this trainer
+        for x in range(min(int(entry[3]), 6)):
+            #get line for this pokemon
+            pklin = pokelines[poke_index]
+            poke_index += 1
+
+            #each pokemon in the party has 0x20 bytes
+            poketemp = [(0).to_bytes(1, 'little')]*0x20
+
+
+            #figure out species and index
+
+            try:
+                raw_index = int(lower_name_list.index(str(pklin[2]).lower().replace(' ', '')))
+            except:
+                    raw_index = 1
+                    print(f'Pokemon on line number {poke_index + 1} has invalid name, did not recognize {str(pklin[2])}, writing Bulbasaur in its place')
+
+            forme_count = get_int_range(working_data.personal_binary[raw_index], 0x20, 1)
+            forme_pointer = get_int_range(working_data.personal_binary[raw_index], 0x1C, 2)
+
+            form = 0
+
+            #we are an alt forme
+            if(forme_pointer <= raw_index and forme_count > 1 and forme_pointer != 0):
+                form = raw_index - forme_pointer + 1
+
+            if(pklin[3] == ''):
+                pklin[3] = 0
+
+            if(int(pklin[3]) != 0):
+                form = int(pklin[3])
+
+            if(form == 0 or forme_pointer == 0):
+                species = raw_index
+            else:
+                #get first thing found
+                for x, persfile in enumerate(working_data.personal_binary):
+                    if(get_int_range(persfile, 0x1C, 2) == forme_pointer):
+                        species = x
+                        break
+            #species
+            poketemp[0x10:0x12] = species.to_bytes(2, 'little')
+            #forme
+            poketemp[0x12] = form.to_bytes(1, 'little')
+
+            
+
+
+            #level
+            poketemp[0xE] = int(pklin[0x4]).to_bytes(1, 'little')
+
+            #gender & Ability
+            ga = 0
+            #gender
+            match str(pklin[5]):
+                case 'Random/Genderless':
+                    pass
+                case 'Male':
+                    ga = 1
+                case 'Female':
+                    ga  = 2
+
+            #Ability
+            match str(pklin[6]):
+                case '1 or 2':
+                    pass
+                case '1':
+                    ga += 0x10
+                case '2':
+                    ga += 0x20
+                case 'H':
+                    ga += 0x30
+                case _:
+                    ga += 0x40
+
+            poketemp[0x0] = (ga).to_bytes(1, 'little')
+
+            #nature
+            poketemp[0x1] = nature_names_low.index(str(pklin[0x7].lower())).to_bytes(1, 'little')
+
+            #hold item
+            try:
+                item_index = int(lower_item_list.index(str(pklin[8]).lower().replace(' ', '')))
+            except:
+                item_index = 0
+                print(f'Pokemon {count + 1} has invalid hold item, did not recognize {pklin[8]}, Writing no item in its place')
+
+            poketemp[0x14:0x16] = item_index.to_bytes(2, 'little')
+
+
+            #friendship
+            poketemp[0xC] = int(pklin[0x9]).to_bytes(1, 'little')
+
+
+            #IVs and shiny
+            iv_block = 0
+
+            #shiny
+            if(str(pklin[0xA]).lower() in {'true', 't', '1', 'yes', 'y'}):
+                iv_block += (1 << 0x1E)
+            #IVs
+            for x in range(6):
+                iv_block += (int(pklin[0xB + x]) & 0x1F) << (5*x)
+
+            poketemp[0x8:0xC] = iv_block.to_bytes(4, 'little')
+
+
+            #Evs
+            for x in range(6):
+                poketemp[0x2 + x] = int(pklin[0x11 + x]).to_bytes(1, 'little')
+
+
+            #moves
+            for x in range(4):
+                try:
+                    move_index = int([item.lower().replace(' ', '') for item in working_data.move_name_list].index(str(pklin[0x17 + x]).lower().replace(' ', '')))
+                except:
+                    move_index = 0
+                    print(f'Pokemon {count + 1} has invalid move, did not recognize {pklin[0x17 + x]}, writing no move in its place')
+                poketemp[2*x + 0x18: 2*x + 0x18 + 2] = move_index.to_bytes(2, 'little')
+
+            teamtemp = [*teamtemp, *poketemp]
+        teambin.append(teamtemp)
+    dir1 = askdirectory(title = 'Trainer')
+    for filename, file in enumerate(trbin):
+
+        with open(os.path.join(dir1, str(filename).zfill(4) + '.bin'), 'w+b') as f:
+            for x in file:
+                try:
+                    f.write(x)
+                except:
+                    f.write(x.to_bytes(1, 'little'))
+    dir2 = askdirectory(title = 'Pokemon')
+    for filename, file in enumerate(teambin):
+
+        with open(os.path.join(dir2, str(filename).zfill(4) + '.bin'), 'w+b') as f:
+            for x in file:
+                try:
+                    f.write(x)
+                except:
+                    f.write(x.to_bytes(1, 'little'))
+
 
 
 def read_facility_trainer_csv(working_data, target_name):
@@ -363,12 +595,11 @@ def import_to_GARC(working_data, target_name):
 
     if(target_name == 'Regular Trainers'):
         read_regular_trainer_csv(working_data)
-        save_GARC(working_data.trainer_binary, target_name, asksaveasfilename(title=f'Select Trainer Garc {working_data.trainer_file_name}', defaultextension='',filetypes= [('','')]), target_name)
     else:
         read_facility_trainer_csv(working_data, target_name)
     
 
-    save_GARC(working_data.pokemon_binary, target_name, asksaveasfilename(title=f'Select Pokemon Garc {working_data.pokemon_file_name}', defaultextension='',filetypes= [('','')]), working_data.game)
+        save_GARC(working_data.pokemon_binary, target_name, asksaveasfilename(title=f'Select Pokemon Garc {working_data.pokemon_file_name}', defaultextension='',filetypes= [('','')]), working_data.game)
 
 
 def main():
@@ -393,13 +624,14 @@ def main():
         temp = [line.rstrip() for line in cfg]
 
         
-        working_data.trainer_name_list_royale = load_text_from_csv(os.path.join(temp[0], working_data.trainer_name_list_royale[0]), working_data.trainer_name_list_royale, 1)
-        working_data.trainer_name_list_tree = load_text_from_csv(os.path.join(temp[0], working_data.trainer_name_list_tree[0]), working_data.trainer_name_list_tree, 1)
-        working_data.trainer_name_list_world = load_text_from_csv(os.path.join(temp[0], working_data.trainer_name_list_world[0]), working_data.trainer_name_list_world, 1)
-        working_data.ability_name_list = load_text_from_csv(os.path.join(temp[0], working_data.ability_name_list[0]), working_data.ability_name_list, 1)
-        working_data.item_name_list = load_text_from_csv(os.path.join(temp[0], working_data.item_name_list[0]), working_data.item_name_list, 1)
-        working_data.pokemon_name_list = load_text_from_csv(os.path.join(temp[0], working_data.pokemon_name_list[0]), working_data.pokemon_name_list, 1)
-        working_data.move_name_list = load_text_from_csv(os.path.join(temp[0], working_data.move_name_list[0]), working_data.move_name_list, 1)
+        working_data.trainer_name_list_royale = load_text_from_csv(temp[0], working_data.trainer_name_list_royale[0], 1)
+        working_data.trainer_name_list_tree = load_text_from_csv(temp[0], working_data.trainer_name_list_tree[0], 1)
+        working_data.trainer_name_list_world = load_text_from_csv(temp[0], working_data.trainer_name_list_world[0], 1)
+        working_data.ability_name_list = load_text_from_csv(temp[0], working_data.ability_name_list[0], 1)
+        working_data.item_name_list = load_text_from_csv(temp[0], working_data.item_name_list[0], 1)
+        working_data.pokemon_name_list = load_text_from_csv(temp[0], working_data.pokemon_name_list[0], 1)
+        working_data.move_name_list = load_text_from_csv(temp[0], working_data.move_name_list[0], 1)
+       
 
     while True:
 

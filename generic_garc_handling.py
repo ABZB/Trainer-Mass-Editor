@@ -4,23 +4,20 @@ from functools import reduce
 import os
 
 
-def load_text_from_csv(path, thing_to_do_things_to, column = -1):
-    with open(path, newline = '', encoding='utf-8-sig') as csvfile:
+def load_text_from_csv(path, file, column = -1):
+    with open(os.path.join(path, file), newline = '', encoding='utf-8-sig') as csvfile:
         reader_head = csv.reader(csvfile, dialect='excel', delimiter=',')
+        print(os.path.join(path, file))
+        #load csv into the array
         
-        #load csv into the array      
-        thing_to_do_things_to = list(reader_head)
 
         if(column >= 0):
             temp = []
-
-            for x in thing_to_do_things_to:
+            for x in list(reader_head):
                 temp.append(x[column])
-            thing_to_do_things_to = temp
-
-
-        return(thing_to_do_things_to)
-
+            return(temp)
+        else:
+            return(list(reader_head))
 
 #read input bytestring as little-endian, return integer
 def from_little_bytes_int(byte_input, length = 0, start = 0):
@@ -294,7 +291,24 @@ def save_GARC(final_binary, GARC_name, file_path, game):
     temp = reconstruct_GARC(final_binary, GARC_name, game)
 
     with open(file_path, "w+b") as f:
-        f.write(bytes(temp))
+
+        for x in temp:
+            try:
+                f.write(bytes(x))
+            except:
+                f.write(x)
+
+def save_GARC(final_binary, GARC_name, file_path, game):
+
+    temp = reconstruct_GARC(final_binary, GARC_name, game)
+
+    with open(file_path, "w+b") as f:
+
+        for x in temp:
+            try:
+                f.write(bytes(x))
+            except:
+                f.write(x)
 
 
 #loads list of filenames in extracted GARC if it exists, otherwise return empty array
@@ -307,4 +321,4 @@ def load_GARC(game, garc_path, target):
 
 
     else:
-        print("Garc folder not found, unreadable, or empty")
+        print("Gar)c folder not found, unreadable, or empty")
